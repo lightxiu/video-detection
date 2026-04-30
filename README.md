@@ -214,7 +214,9 @@ MODEL_CONFIG = {
 ## 运行截图
 
 **主程序运行效果**
-<img width="768" height="432" alt="P2026-04-11_15-53-17" src="https://github.com/user-attachments/assets/ccfc2988-e0d5-4907-837b-4f2599c96e89" />
+
+<img width="768" height="432" alt="P2026-04-11_15-53-17" src="https://github.com/user-attachments/assets/c65423a3-5e08-450b-b834-bffe974f78cf" />
+
 
 
 
