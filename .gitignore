@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# Model files (too large)
+*.pt
+*.pth
+*.onnx
+*.engine
+models/
+
+# Video files
+*.mp4
+*.avi
+*.mov
+*.mkv
+data/videos/
+
+# Output
+output/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+=4.8.0
+=8.0.0
+*.gif
+*.png
+*.jpg
+*.jpeg
+
+# Logs
+*.log
+
+# Environment
+.env
