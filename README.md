@@ -214,11 +214,13 @@ MODEL_CONFIG = {
 ## 运行截图
 
 **主程序运行效果**
+<img width="768" height="432" alt="P2026-04-11_15-53-17" src="https://github.com/user-attachments/assets/ccfc2988-e0d5-4907-837b-4f2599c96e89" />
 
-![alt text](PixPin_2026-04-11_15-53-17.gif)
+
 
 **不同分辨率测试**
-![alt text](image.png)
+
+<img width="381" height="195" alt="image" src="https://github.com/user-attachments/assets/7eec1bf8-3840-4f31-baf8-d8d9ea7b5fee" />
 
 
 
