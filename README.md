@@ -13,9 +13,11 @@ video_detection_demo/
 │   ├── video_loader.py       # 视频加载模块
 │   ├── detector.py           # 目标检测模块
 │   ├── visualizer.py         # 可视化标注模块
-│   └── video_writer.py       # 视频输出模块
+│   ├── video_writer.py       # 视频输出模块
+│   └── report_generator.py   # LLM 检测报告生成模块
 ├── data/videos/              # 输入视频目录
 ├── output/results/            # 输出视频目录
+├── output/reports/            # 巡检报告目录
 ├── main.py                   # 主程序
 └── requirements.txt          # 依赖
 ```
@@ -96,6 +98,31 @@ class VideoWriter:
 
 ---
 
+### 5. ReportGenerator (report_generator.py)
+
+**职责：** 检测结果统计聚合 + 调用本地 LLM 生成巡检报告
+
+**核心类：**
+```python
+class DetectionStats:
+    def __init__(self, source=None, fps=None)
+    def update(results, names)     # 逐帧聚合类别数量/置信度/单帧峰值
+    def summary() -> dict          # 输出统计汇总
+
+class ReportGenerator:
+    def __init__(self, base_url, model, timeout, class_name_map)
+    def generate(summary) -> str   # 单次调用 Ollama 生成报告
+    def save(report, path)
+```
+
+**技术要点：**
+- `DetectionStats` 在检测循环内逐帧聚合统计，不额外存储帧，内存开销 O(类别数)
+- `ReportGenerator` 通过 `requests.post` 单次调用 Ollama 的 `/api/generate` 接口（`stream=False`）
+- Ollama 不可用时自动降级为基于统计数据的纯文本报告，主流程不中断
+- 类别名通过 `CLASS_NAME_MAP` 翻译成中文，报告面向运维人员
+
+---
+
 ## 配置说明
 
 `configs/model_config.py`:
@@ -106,6 +133,15 @@ MODEL_CONFIG = {
     'conf_threshold': 0.5,            # 置信度阈值
     'iou_threshold': 0.45,             # IOU 阈值
     'device': 'cuda'                   # 'cuda' 或 'cpu'
+}
+
+LLM_CONFIG = {
+    'enabled': True,                   # 是否启用报告生成
+    'base_url': 'http://localhost:11434',
+    'model': 'qwen2.5:3b',             # 本地 Ollama 模型
+    'timeout': 120,                    # 生成超时（秒）
+    'report_interval': 0,              # 0 = 仅结束时生成；N = 每 N 秒生成
+    'output_dir': 'output/reports',
 }
 ```
 
@@ -119,16 +155,27 @@ MODEL_CONFIG = {
 pip install -r requirements.txt
 ```
 
-### 2. 运行
+### 2. 启动本地 LLM（Ollama）
+
+```bash
+# 安装 Ollama 后，拉取模型并启动服务
+ollama pull qwen2.5:3b
+ollama serve   # 默认监听 http://localhost:11434
+```
+
+> Ollama 不可用也不影响检测主流程，报告模块会自动降级为纯文本统计摘要。
+
+### 3. 运行
 
 ```bash
 python main.py
 ```
 
-### 3. 输出
+### 4. 输出
 
 - 输入：`data/videos/input.mp4`
-- 输出：`output/results/output.mp4`
+- 输出视频：`output/results/output_frames.mp4`
+- 巡检报告：`output/reports/inspection_report.md`
 
 ---
 
@@ -138,10 +185,10 @@ python main.py
 输入视频 → VideoLoader → 原始帧
     ↓
 Detector → 检测结果(results)
-    ↓
-Visualizer → 带标注帧
-    ↓
-VideoWriter → 输出视频
+    ↓                          ↘
+Visualizer → 带标注帧         DetectionStats → 统计聚合
+    ↓                          ↓
+VideoWriter → 输出视频       ReportGenerator → Ollama → 巡检报告(md)
 ```
 
 ---
