@@ -6,6 +6,15 @@ MODEL_CONFIG = {
     'backend': 'pytorch'
 }
 
+LLM_CONFIG = {
+    'enabled': True,
+    'base_url': 'http://localhost:11434',
+    'model': 'qwen2.5:3b',
+    'timeout': 120,
+    'report_interval': 0,        # 0 = 仅视频结束时生成；N = 每 N 秒生成一次
+    'output_dir': 'output/reports',
+}
+
 CLASS_NAME_MAP = {
     'person': '行人',
     'car': '车辆',
