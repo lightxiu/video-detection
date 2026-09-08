@@ -14,6 +14,7 @@ class DetectionStats:
         self._class_counts = {}       # class_name -> 累计出现次数
         self._class_conf_sum = {}     # class_name -> 置信度累加
         self._class_peak = {}         # class_name -> 单帧最大出现数
+        self._class_peak_frame = {}   # class_name -> 峰值出现的帧序号
 
     def update(self, results, names):
         frame_counts = {}
@@ -28,7 +29,9 @@ class DetectionStats:
                 self.total_detections += 1
 
         for name, count in frame_counts.items():
-            self._class_peak[name] = max(self._class_peak.get(name, 0), count)
+            if count > self._class_peak.get(name, 0):
+                self._class_peak[name] = count
+                self._class_peak_frame[name] = self.total_frames
 
         self.total_frames += 1
 
@@ -37,11 +40,14 @@ class DetectionStats:
         for name in sorted(self._class_counts):
             count = self._class_counts[name]
             avg_conf = self._class_conf_sum[name] / count if count else 0.0
+            peak_frame = self._class_peak_frame.get(name, 0)
+            peak_at = round(peak_frame / self.fps, 1) if self.fps else None
             detections.append({
                 'class': name,
                 'count': count,
                 'avg_conf': round(avg_conf, 3),
                 'peak_per_frame': self._class_peak[name],
+                'peak_at_second': peak_at,
             })
 
         duration = self.total_frames / self.fps if self.fps else None
@@ -65,7 +71,7 @@ class ReportGenerator:
         "## 要求\n"
         "1. 使用 Markdown 格式，包含三部分：一、巡检概况；二、目标类别统计；三、结论与建议。\n"
         "2. 客观描述，不要编造统计之外的信息；平均置信度偏低的类别可提示需人工复核。\n"
-        "3. 结论面向运维人员，突出主要目标、出现频次、是否需要关注。\n"
+        "3. 结论面向运维人员，突出主要目标、出现频次、是否需要关注；若某类别存在明显峰值，请指出峰值出现的时间。\n"
         "4. 直接输出报告正文，不要输出任何额外解释。"
     )
 
@@ -90,8 +96,11 @@ class ReportGenerator:
             lines.append("- 各类别统计：")
             for d in summary['detections']:
                 name = self._localize(d['class'])
+                peak_txt = f"单帧峰值 {d['peak_per_frame']}"
+                if d['peak_at_second'] is not None:
+                    peak_txt += f"（第 {d['peak_at_second']} 秒）"
                 lines.append(
-                    f"  - {name}：{d['count']} 次，平均置信度 {d['avg_conf']}，单帧峰值 {d['peak_per_frame']}"
+                    f"  - {name}：{d['count']} 次，平均置信度 {d['avg_conf']}，{peak_txt}"
                 )
         else:
             lines.append("- 未检测到目标")
@@ -133,11 +142,13 @@ class ReportGenerator:
         lines.append('## 二、目标类别统计')
 
         if summary['detections']:
-            lines.append('| 类别 | 出现次数 | 平均置信度 | 单帧峰值 |')
-            lines.append('| --- | --- | --- | --- |')
+            lines.append('| 类别 | 出现次数 | 平均置信度 | 单帧峰值 | 峰值时刻(秒) |')
+            lines.append('| --- | --- | --- | --- | --- |')
             for d in summary['detections']:
                 name = self._localize(d['class'])
-                lines.append(f"| {name} | {d['count']} | {d['avg_conf']} | {d['peak_per_frame']} |")
+                lines.append(
+                    f"| {name} | {d['count']} | {d['avg_conf']} | {d['peak_per_frame']} | {d['peak_at_second']} |"
+                )
         else:
             lines.append('未检测到目标。')
 
