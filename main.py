@@ -1,3 +1,4 @@
+import argparse
 import os
 import time
 
@@ -10,18 +11,22 @@ from src.report_generator import DetectionStats, ReportGenerator
 from configs.model_config import MODEL_CONFIG, LLM_CONFIG, CLASS_NAME_MAP
 
 
-def _report_path(output_dir, suffix=''):
-    name = 'inspection_report'
-    if suffix:
-        name = f'{name}_{suffix}'
-    return os.path.join(output_dir, f'{name}.md')
-
-
 def main():
-    video_path = 'data/videos/input.mp4'
-    output_path = 'output/results/output_frames.mp4'
+    parser = argparse.ArgumentParser(description='YOLOv8 video detection + LLM report')
+    parser.add_argument('--video', default='data/videos/input.mp4',
+                        help='input video path')
+    parser.add_argument('--no-report', action='store_true',
+                        help='skip LLM report generation')
+    args = parser.parse_args()
 
-    loader = VideoLoader(video_path)
+    video_name = os.path.splitext(os.path.basename(args.video))[0]
+    output_path = f'output/results/{video_name}_annotated.mp4'
+    report_path = f'output/reports/{video_name}_report.md'
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    os.makedirs(os.path.dirname(report_path), exist_ok=True)
+
+    loader = VideoLoader(args.video)
     detector = Detector(
         MODEL_CONFIG['model_path'],
         MODEL_CONFIG['conf_threshold'],
@@ -30,13 +35,13 @@ def main():
     )
     visualizer = Visualizer(detector.names)
     fps_monitor = FPSMonitor()
-    stats = DetectionStats(source=video_path, fps=loader.get_fps())
+    stats = DetectionStats(source=args.video, fps=loader.get_fps())
     reporter = ReportGenerator(
         base_url=LLM_CONFIG['base_url'],
         model=LLM_CONFIG['model'],
         timeout=LLM_CONFIG['timeout'],
         class_name_map=CLASS_NAME_MAP,
-    ) if LLM_CONFIG['enabled'] else None
+    ) if (LLM_CONFIG['enabled'] and not args.no_report) else None
 
     writer = None
     report_interval = LLM_CONFIG.get('report_interval', 0)
@@ -59,7 +64,7 @@ def main():
         if reporter is not None and report_interval > 0:
             now = time.time()
             if now - last_report_at >= report_interval:
-                path = _report_path(LLM_CONFIG['output_dir'], time.strftime('%H%M%S'))
+                path = f'{os.path.splitext(report_path)[0]}_{time.strftime("%H%M%S")}.md'
                 reporter.save(reporter.generate(stats.summary()), path)
                 print(f"[report] {path}")
                 last_report_at = now
@@ -70,10 +75,9 @@ def main():
     print(f"Total frames: {fps_monitor.get_frame_count()}")
 
     if reporter is not None:
-        path = _report_path(LLM_CONFIG['output_dir'])
         report = reporter.generate(stats.summary())
-        reporter.save(report, path)
-        print(f"Report saved to: {path}")
+        reporter.save(report, report_path)
+        print(f"Report saved to: {report_path}")
         print('-' * 60)
         print(report)
 
